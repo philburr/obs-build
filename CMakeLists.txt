@@ -11,11 +11,14 @@ ExternalProject_Add(nvenc
 )
 ExternalProject_Get_property(nvenc SOURCE_DIR)
 set(NVENC_SOURCE_DIR ${SOURCE_DIR})
-set(PREFIX PREFIX)
-configure_file(${NVENC_SOURCE_DIR}/ffnvcodec.pc.in ffnvcodec.pc.in @ONLY)
-set(PREFIX ${NVENC_SOURCE_DIR})
-configure_file(${CMAKE_CURRENT_BINARY_DIR}/ffnvcodec.pc.in ffnvcodec.pc @ONLY)
-message("${NVENC_SOURCE_DIR}")
+
+add_custom_target(nvenc-configure
+	DEPENDS
+		${CMAKE_CURRENT_SOURCE_DIR}/configure.cmake
+	COMMAND
+		${CMAKE_COMMAND} -DNVENC_SOURCE_DIR=${NVENC_SOURCE_DIR} -P ${CMAKE_CURRENT_SOURCE_DIR}/configure.cmake
+)
+add_dependencies(nvenc-configure nvenc)
 
 ExternalProject_Add(ffmpeg
 	GIT_REPOSITORY https://github.com/philburr/FFmpeg.git
@@ -25,7 +28,7 @@ ExternalProject_Add(ffmpeg
 	BUILD_IN_SOURCE 1
 	INSTALL_COMMAND make install
 )
-add_dependencies(ffmpeg nvenc)
+add_dependencies(ffmpeg nvenc-configure)
 
 ExternalProject_Add(obs
 	GIT_REPOSITORY https://github.com/obsproject/obs-studio
@@ -34,6 +37,7 @@ ExternalProject_Add(obs
 )
 ExternalProject_Get_property(obs SOURCE_DIR)
 set(OBS_SOURCE_DIR ${SOURCE_DIR})
+add_dependencies(obs ffmpeg)
 
 ExternalProject_Add(obs-atsc
 	GIT_REPOSITORY https://github.com/philburr/obs-atsc
@@ -42,6 +46,12 @@ ExternalProject_Add(obs-atsc
 )
 add_dependencies(obs-atsc obs)
 
+ExternalProject_Add(obs-websocket
+	GIT_REPOSITORY https://github.com/philburr/obs-websocket.git
+	GIT_TAG origin/4.x-current
+	CMAKE_ARGS -DLIBOBS_INCLUDE_DIR=${OBS_SOURCE_DIR}/libobs -DLIBOBS_LIB=${CMAKE_INSTALL_PREFIX}/lib/libobs.so -DOBS_FRONTEND_LIB=${CMAKE_INSTALL_PREFIX}/lib/libobs-frontend-api.so -DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX}
+)
+add_dependencies(obs-websocket obs)
 
 add_library(build INTERFACE)
-add_dependencies(build ffmpeg obs obs-atsc)
+add_dependencies(build ffmpeg obs obs-atsc obs-websocket)
